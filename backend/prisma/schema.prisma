@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model danh_gia {
+  id            String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  nguoi_dung_id String     @db.Uuid
+  sach_id       String     @db.Uuid
+  so_sao        Int        @db.SmallInt
+  nhan_xet      String?
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime   @default(now()) @db.Timestamptz(6)
+  sach          sach       @relation(fields: [sach_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_review_sach")
+  nguoi_dung    nguoi_dung @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_review_user")
+
+  @@unique([nguoi_dung_id, sach_id], map: "uq_review")
+  @@index([sach_id], map: "idx_danh_gia_sach")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model muc_tieu_doc {
+  id               String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  nguoi_dung_id    String     @db.Uuid
+  nam              Int        @db.SmallInt
+  so_sach_muc_tieu Int
+  ngay_hoan_thanh  DateTime?  @db.Timestamptz(6)
+  created_at       DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime   @default(now()) @db.Timestamptz(6)
+  nguoi_dung       nguoi_dung @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_goal_user")
+
+  @@unique([nguoi_dung_id, nam], map: "uq_goal")
+}
+
+model nguoi_dung {
+  id                 String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email              String           @unique @db.VarChar(255)
+  mat_khau_hash      String           @db.VarChar(255)
+  ten_hien_thi       String           @db.VarChar(100)
+  anh_dai_dien       String?
+  vai_tro            vai_tro_enum     @default(DOC_GIA)
+  trang_thai         Boolean          @default(true)
+  lan_dang_nhap_cuoi DateTime?        @db.Timestamptz(6)
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime         @default(now()) @db.Timestamptz(6)
+  danh_dau_trang     danh_dau_trang[]
+  danh_gia           danh_gia[]
+  ghi_chu_doc        ghi_chu_doc[]
+  muc_tieu_doc       muc_tieu_doc[]
+  phien_doc          phien_doc[]
+  sach               sach[]
+  tien_do_doc        tien_do_doc[]
+
+  @@index([email], map: "idx_nguoi_dung_email")
+  @@index([vai_tro], map: "idx_nguoi_dung_vai_tro")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model sach {
+  id             String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  the_loai_id    String           @db.Uuid
+  nguoi_tao_id   String?          @db.Uuid
+  tieu_de        String           @db.VarChar(300)
+  tac_gia        String           @db.VarChar(200)
+  nha_xuat_ban   String?          @db.VarChar(200)
+  isbn           String?          @db.VarChar(20)
+  nam_xuat_ban   Int?             @db.SmallInt
+  ngon_ngu       String?          @db.VarChar(50)
+  mo_ta          String?
+  anh_bia        String?
+  tong_so_trang  Int
+  loai_file      loai_file_enum
+  file_url       String
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
+  danh_dau_trang danh_dau_trang[]
+  danh_gia       danh_gia[]
+  ghi_chu_doc    ghi_chu_doc[]
+  phien_doc      phien_doc[]
+  nguoi_dung     nguoi_dung?      @relation(fields: [nguoi_tao_id], references: [id], onUpdate: NoAction, map: "fk_sach_nguoi_tao")
+  the_loai       the_loai         @relation(fields: [the_loai_id], references: [id], onUpdate: NoAction, map: "fk_sach_the_loai")
+  tien_do_doc    tien_do_doc[]
+
+  @@index([tac_gia(ops: raw("gin_trgm_ops"))], map: "idx_sach_tac_gia", type: Gin)
+  @@index([the_loai_id], map: "idx_sach_the_loai")
+  @@index([tieu_de(ops: raw("gin_trgm_ops"))], map: "idx_sach_tieu_de", type: Gin)
+}
+
+model the_loai {
+  id           String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  ten_the_loai String  @unique @db.VarChar(100)
+  mo_ta        String?
+  sach         sach[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model tien_do_doc {
+  id                String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  nguoi_dung_id     String              @db.Uuid
+  sach_id           String              @db.Uuid
+  trang_hien_tai    Int?                @default(0)
+  phan_tram_tien_do Int?                @default(0) @db.SmallInt
+  trang_thai        trang_thai_doc_enum @default(CHUA_DOC)
+  ngay_bat_dau      DateTime?           @db.Timestamptz(6)
+  ngay_hoan_thanh   DateTime?           @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  sach              sach                @relation(fields: [sach_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_tdd_sach")
+  nguoi_dung        nguoi_dung          @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_tdd_user")
+
+  @@unique([nguoi_dung_id, sach_id], map: "uq_tien_do_doc")
+  @@index([nguoi_dung_id], map: "idx_tien_do_doc_user")
+  @@index([nguoi_dung_id, trang_thai], map: "idx_tien_do_doc_user_trang_thai")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model danh_dau_trang {
+  id            String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  nguoi_dung_id String     @db.Uuid
+  sach_id       String     @db.Uuid
+  so_trang      Int
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  sach          sach       @relation(fields: [sach_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bookmark_sach")
+  nguoi_dung    nguoi_dung @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bookmark_user")
+
+  @@index([nguoi_dung_id], map: "idx_bookmark_user")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ghi_chu_doc {
+  id            String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  nguoi_dung_id String     @db.Uuid
+  sach_id       String     @db.Uuid
+  so_trang      Int
+  noi_dung      String
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime   @default(now()) @db.Timestamptz(6)
+  sach          sach       @relation(fields: [sach_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_note_sach")
+  nguoi_dung    nguoi_dung @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_note_user")
+
+  @@index([nguoi_dung_id], map: "idx_ghi_chu_user")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model phien_doc {
+  id                 String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  nguoi_dung_id      String     @db.Uuid
+  sach_id            String     @db.Uuid
+  trang_bat_dau      Int
+  trang_ket_thuc     Int
+  thoi_gian_doc_phut Int
+  ngay_doc           DateTime   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at         DateTime   @default(now()) @db.Timestamptz(6)
+  sach               sach       @relation(fields: [sach_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_phien_doc_sach")
+  nguoi_dung         nguoi_dung @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_phien_doc_user")
+
+  @@index([sach_id], map: "idx_phien_doc_sach")
+  @@index([nguoi_dung_id, ngay_doc(sort: Desc)], map: "idx_phien_doc_user")
+}
+
+enum loai_file_enum {
+  PDF
+  EPUB
+}
+
+enum trang_thai_doc_enum {
+  CHUA_DOC
+  DANG_DOC
+  DA_HOAN_THANH
+}
+
+enum vai_tro_enum {
+  THU_THU
+  DOC_GIA
+}
