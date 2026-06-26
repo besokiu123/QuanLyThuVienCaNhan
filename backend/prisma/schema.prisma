@@ -105,6 +105,7 @@ model tien_do_doc {
   sach_id           String              @db.Uuid
   trang_hien_tai    Int?                @default(0)
   phan_tram_tien_do Int?                @default(0) @db.SmallInt
+  epub_cfi          String?             @db.Text
   trang_thai        trang_thai_doc_enum @default(CHUA_DOC)
   ngay_bat_dau      DateTime?           @db.Timestamptz(6)
   ngay_hoan_thanh   DateTime?           @db.Timestamptz(6)

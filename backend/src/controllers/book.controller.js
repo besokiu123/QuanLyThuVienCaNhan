@@ -223,3 +223,25 @@ exports.getAll = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+// Thêm vào cuối file
+// ================= LẤY SÁCH ĐANG ĐỌC =================
+exports.getReadingBooks = async (req, res) => {
+    try {
+        const books = await sachService.getReadingBooks(req.user.id);
+        res.status(200).json({ data: books });
+    } catch (error) {
+        console.error('❌ Get reading books error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ================= LẤY SÁCH ĐÃ ĐỌC =================
+exports.getCompletedBooks = async (req, res) => {
+    try {
+        const books = await sachService.getCompletedBooks(req.user.id);
+        res.status(200).json({ data: books });
+    } catch (error) {
+        console.error('❌ Get completed books error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};

@@ -11,9 +11,16 @@ exports.getAllTheLoai = async () => {
 
 // Lấy chi tiết thể loại
 exports.getTheLoaiById = async (id) => {
-	return await prisma.the_loai.findUnique({
+
+	const category = await prisma.the_loai.findUnique({
 		where: { id }
 	});
+
+	if (!category) {
+		throw new Error('Không tìm thấy thể loại');
+	}
+
+	return category;
 };
 
 // Tạo thể loại
@@ -39,9 +46,26 @@ exports.createTheLoai = async (data) => {
 
 // Cập nhật thể loại
 exports.updateTheLoai = async (id, data) => {
+
+	const existed = await prisma.the_loai.findFirst({
+		where: {
+			ten_the_loai: data.ten_the_loai,
+			NOT: {
+				id: id
+			}
+		}
+	});
+
+	if (existed) {
+		throw new Error('Tên thể loại đã tồn tại');
+	}
+
 	return await prisma.the_loai.update({
 		where: { id },
-		data
+		data: {
+			ten_the_loai: data.ten_the_loai,
+			mo_ta: data.mo_ta
+		}
 	});
 };
 

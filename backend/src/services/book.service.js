@@ -5,7 +5,7 @@ const streamifier = require('streamifier');
 const uploadFileToCloudinary = async (fileBuffer) => {
     return new Promise((resolve, reject) => {
         const cldUploadStream = cloudinary.uploader.upload_stream(
-            { resource_type: "raw", folder: "book_files" }, // resource_type: "raw" cho PDF/EPUB
+            { resource_type: "raw", folder: "book_files" },
             (error, result) => {
                 if (error) return reject(error);
                 resolve(result.secure_url);
@@ -14,9 +14,9 @@ const uploadFileToCloudinary = async (fileBuffer) => {
         streamifier.createReadStream(fileBuffer).pipe(cldUploadStream);
     });
 };
-//them sach
+
+// ================= THÊM SÁCH =================
 exports.addSach = async (thuThuId, data) => {
-    // Nếu thiếu tiêu đề hoặc thể loại, ném lỗi ngay lập tức
     if (!data.tieu_de || !data.the_loai_id) {
         throw new Error("Thiếu thông tin bắt buộc: Tiêu đề hoặc ID thể loại");
     }
@@ -36,7 +36,8 @@ exports.addSach = async (thuThuId, data) => {
         }
     });
 };
-//xoa sach
+
+// ================= LẤY SÁCH THEO ID =================
 exports.getSachById = async (id) => {
     return await prisma.sach.findUnique({
         where: { id: id },
@@ -51,34 +52,32 @@ exports.getSachById = async (id) => {
         }
     });
 };
+
+// ================= XÓA SÁCH =================
 exports.deleteSach = async (id) => {
     return await prisma.sach.delete({ where: { id } });
-
 };
-//cap nhat sach
-exports.updateSach = async (
-    id,
-    updateData
-) => {
+
+// ================= CẬP NHẬT SÁCH =================
+exports.updateSach = async (id, updateData) => {
     return prisma.sach.update({
         where: { id },
         data: updateData
     });
 };
 
-//lay danh sach sach
+// ================= LẤY DANH SÁCH SÁCH =================
 exports.getAllSach = async (page, limit) => {
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    // Lấy danh sách sách và tổng số lượng để frontend làm phân trang
     const [danhSach, tongSo] = await Promise.all([
         prisma.sach.findMany({
             skip: skip,
             take: limitNum,
             orderBy: { created_at: 'desc' },
-            include: { the_loai: true } // Lấy kèm thông tin thể loại
+            include: { the_loai: true }
         }),
         prisma.sach.count()
     ]);
@@ -93,7 +92,44 @@ exports.getAllSach = async (page, limit) => {
         }
     };
 };
-//tìm kiếm và lọc
+
+// ================= LẤY SÁCH ĐANG ĐỌC =================
+exports.getReadingBooks = async (userId) => {
+    const progress = await prisma.tien_do_doc.findMany({
+        where: {
+            nguoi_dung_id: userId,
+            trang_thai: 'DANG_DOC'
+        },
+        include: {
+            sach: {
+                include: {
+                    the_loai: true
+                }
+            }
+        }
+    });
+    return progress.map(p => p.sach);
+};
+
+// ================= LẤY SÁCH ĐÃ ĐỌC =================
+exports.getCompletedBooks = async (userId) => {
+    const progress = await prisma.tien_do_doc.findMany({
+        where: {
+            nguoi_dung_id: userId,
+            trang_thai: 'DA_HOAN_THANH'
+        },
+        include: {
+            sach: {
+                include: {
+                    the_loai: true
+                }
+            }
+        }
+    });
+    return progress.map(p => p.sach);
+};
+
+// ================= TÌM KIẾM VÀ LỌC =================
 exports.searchAndFilter = async (query, page = 1, limit = 10) => {
     const { search, theLoai, tacGia, trangThai, userId } = query;
     let filters = {};
