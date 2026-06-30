@@ -83,32 +83,6 @@ class _BookListScreenState extends State<BookListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text(
-          "Quản lý sách",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.black54),
-            onPressed: () {
-              // Mở search dialog hoặc focus vào search bar
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.black54),
-            onPressed: () {
-              _showFilterDialog();
-            },
-          ),
-        ],
-      ),
       body: Stack(
         children: [
           // 🔥 Nội dung chính

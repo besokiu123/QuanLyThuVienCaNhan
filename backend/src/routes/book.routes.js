@@ -52,5 +52,6 @@ router.delete(
     roleMiddleware('THU_THU'),
     bookController.deleteSach
 );
+router.get('/signed-url/:bookId', authMiddleware, bookController.getSignedUrl);
 
 module.exports = router;

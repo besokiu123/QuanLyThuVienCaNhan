@@ -7,10 +7,28 @@ class NoteService {
   Future<List<NoteModel>> getNotesByBook(String bookId) async {
     try {
       final response = await ApiClient.dio.get('/note/$bookId');
-      final data = response.data as List? ?? [];
-      return data.map((e) => NoteModel.fromJson(e)).toList();
+      print('📥 Notes response: ${response.statusCode}');
+      
+      if (response.data == null) {
+        return [];
+      }
+      
+      if (response.data is List) {
+        return (response.data as List)
+            .map((e) => NoteModel.fromJson(e))
+            .toList();
+      }
+      
+      return [];
+    } on DioException catch (e) {
+      print('❌ DioException: ${e.message}');
+      if (e.response?.statusCode == 404 || e.response?.statusCode == 500) {
+        return [];
+      }
+      throw Exception('Không thể lấy danh sách ghi chú: ${e.message}');
     } catch (e) {
-      throw Exception('Không thể lấy danh sách ghi chú: $e');
+      print('❌ getNotesByBook error: $e');
+      return [];
     }
   }
 

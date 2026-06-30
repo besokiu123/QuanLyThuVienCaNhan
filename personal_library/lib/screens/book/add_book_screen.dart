@@ -6,6 +6,7 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../services/book_service.dart';
 import '../../models/category_model.dart';
@@ -28,9 +29,12 @@ class _AddBookScreenState extends State<AddBookScreen> {
   String? selectedCategoryId;
   List<CategoryModel> categories = [];
   File? coverImage;
-  PlatformFile? bookFile;
+  File? bookFile;
+  String? bookFileName;
+  int? bookFileSize;
   bool _isLoading = false;
   bool _isTitleDuplicate = false;
+  bool _isAutoFilled = false;
 
   final categoryService = CategoryService();
   final bookService = BookService();
@@ -61,16 +65,12 @@ class _AddBookScreenState extends State<AddBookScreen> {
     }
   }
 
-  // 🔥 KIỂM TRA TRÙNG TÊN SÁCH
   void _checkTitleDuplicate() {
     final title = titleController.text.trim();
     if (title.isEmpty) {
       setState(() => _isTitleDuplicate = false);
       return;
     }
-
-    // Kiểm tra với danh sách sách hiện có (có thể gọi API)
-    // Ở đây tôi giả sử có danh sách sách từ service
     _checkTitleExists(title);
   }
 
@@ -88,40 +88,33 @@ class _AddBookScreenState extends State<AddBookScreen> {
     }
   }
 
-  // 🔥 VALIDATE TẤT CẢ
   bool _validate() {
-    // 1. Kiểm tra tiêu đề
     if (titleController.text.trim().isEmpty) {
       _showSnackbar('⚠️ Vui lòng nhập tiêu đề sách', Colors.orange);
       return false;
     }
 
-    // 2. Kiểm tra trùng tên
     if (_isTitleDuplicate) {
       _showSnackbar('⚠️ Tiêu đề sách đã tồn tại!', Colors.orange);
       return false;
     }
 
-    // 3. Kiểm tra tác giả
     if (authorController.text.trim().isEmpty) {
       _showSnackbar('⚠️ Vui lòng nhập tác giả', Colors.orange);
       return false;
     }
 
-    // 4. Kiểm tra tác giả (không chứa số)
     final author = authorController.text.trim();
     if (RegExp(r'\d').hasMatch(author)) {
       _showSnackbar('⚠️ Tác giả không được chứa số', Colors.orange);
       return false;
     }
 
-    // 5. Kiểm tra thể loại
     if (selectedCategoryId == null) {
       _showSnackbar('⚠️ Vui lòng chọn thể loại', Colors.orange);
       return false;
     }
 
-    // 6. Kiểm tra năm xuất bản
     final year = yearController.text.trim();
     if (year.isNotEmpty) {
       final yearInt = int.tryParse(year);
@@ -131,19 +124,16 @@ class _AddBookScreenState extends State<AddBookScreen> {
       }
     }
 
-    // 7. Kiểm tra ảnh bìa
     if (coverImage == null) {
       _showSnackbar('⚠️ Vui lòng chọn ảnh bìa', Colors.orange);
       return false;
     }
 
-    // 8. Kiểm tra file sách
     if (bookFile == null) {
       _showSnackbar('⚠️ Vui lòng chọn file sách', Colors.orange);
       return false;
     }
 
-    // 9. Kiểm tra số trang
     if (totalPages <= 0) {
       _showSnackbar('⚠️ File sách không có trang hoặc bị lỗi', Colors.orange);
       return false;
@@ -152,34 +142,205 @@ class _AddBookScreenState extends State<AddBookScreen> {
     return true;
   }
 
-  Future<void> pickImage() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() => coverImage = File(picked.path));
+  // 🔥 TỰ ĐỘNG LẤY THÔNG TIN TỪ TÊN FILE
+  void _autoFillFromFileName(String fileName) {
+    String name = fileName;
+    if (name.contains('.')) {
+      name = name.substring(0, name.lastIndexOf('.'));
+    }
+
+    // Tách tên sách và tác giả
+    if (name.contains(' - ')) {
+      final parts = name.split(' - ');
+      if (parts.length >= 2) {
+        final bookTitle = parts[0].trim();
+        final author = parts.sublist(1).join(' - ').trim();
+        
+        if (titleController.text.isEmpty) {
+          titleController.text = bookTitle;
+        }
+        if (authorController.text.isEmpty) {
+          authorController.text = author;
+        }
+      }
+    } else if (name.contains('_')) {
+      final parts = name.split('_');
+      if (parts.length >= 2) {
+        final bookTitle = parts[0].trim();
+        final author = parts.sublist(1).join(' ').trim();
+        
+        if (titleController.text.isEmpty) {
+          titleController.text = bookTitle;
+        }
+        if (authorController.text.isEmpty) {
+          authorController.text = author;
+        }
+      }
+    } else {
+      if (titleController.text.isEmpty) {
+        titleController.text = name;
+      }
+    }
+    
+    setState(() => _isAutoFilled = true);
+  }
+
+  // 🔥 ĐỌC METADATA TỪ FILE EPUB
+  Future<Map<String, String>> _readEpubMetadata(String path) async {
+    try {
+      final bytes = File(path).readAsBytesSync();
+      final archive = ZipDecoder().decodeBytes(bytes);
+      
+      String? opfFile;
+      for (final file in archive.files) {
+        if (file.name.endsWith('.opf')) {
+          opfFile = utf8.decode(file.content);
+          break;
+        }
+      }
+      
+      if (opfFile != null) {
+        final title = _extractTag(opfFile, '<dc:title>', '</dc:title>');
+        final author = _extractTag(opfFile, '<dc:creator>', '</dc:creator>');
+        final year = _extractTag(opfFile, '<dc:date>', '</dc:date>');
+        
+        return {
+          'title': title ?? '',
+          'author': author ?? '',
+          'year': year != null && year.length >= 4 ? year.substring(0, 4) : '',
+        };
+      }
+    } catch (e) {
+      print('❌ Read EPUB metadata error: $e');
+    }
+    return {};
+  }
+
+  // 🔥 ĐỌC METADATA TỪ FILE PDF
+  Future<Map<String, String>> _readPdfMetadata(String path) async {
+    try {
+      final bytes = File(path).readAsBytesSync();
+      final doc = PdfDocument(inputBytes: bytes);
+      
+      final title = doc.documentInformation.title ?? '';
+      final author = doc.documentInformation.author ?? '';
+      
+      doc.dispose();
+      
+      return {
+        'title': title,
+        'author': author,
+      };
+    } catch (e) {
+      print('❌ Read PDF metadata error: $e');
+      return {};
     }
   }
 
+  String _extractTag(String xml, String openTag, String closeTag) {
+    final start = xml.indexOf(openTag);
+    if (start == -1) return '';
+    final end = xml.indexOf(closeTag, start + openTag.length);
+    if (end == -1) return '';
+    return xml.substring(start + openTag.length, end);
+  }
+
+  Future<void> pickImage() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      try {
+        final appDir = await getApplicationDocumentsDirectory();
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_cover.jpg';
+        final newFile = File('${appDir.path}/$fileName');
+        
+        final sourceFile = File(picked.path);
+        await sourceFile.copy(newFile.path);
+        
+        setState(() {
+          coverImage = newFile;
+        });
+      } catch (e) {
+        _showSnackbar('❌ Lỗi lưu ảnh: $e', Colors.red);
+      }
+    }
+  }
+
+  // 🔥 SỬA: TỰ ĐỘNG ĐIỀN THÔNG TIN KHI CHỌN FILE
   Future<void> pickBook() async {
     final result = await FilePicker.platform.pickFiles();
     if (result == null) return;
 
-    bookFile = result.files.first;
-    final ext = bookFile!.extension?.toLowerCase();
-
     try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${result.files.first.name}';
+      final newFile = File('${appDir.path}/$fileName');
+      
+      final sourceFile = File(result.files.first.path!);
+      await sourceFile.copy(newFile.path);
+      
+      final ext = result.files.first.extension?.toLowerCase();
+      
+      // 🔥 TỰ ĐỘNG ĐIỀN THÔNG TIN
+      await _autoFillBookInfo(newFile.path, result.files.first.name, ext!);
+      
+      // Đếm số trang
+      int pageCount = 0;
       if (ext == 'pdf') {
-        totalPages = await _countPdfPages(bookFile!.path!);
+        pageCount = await _countPdfPages(newFile.path);
       } else if (ext == 'epub') {
-        totalPages = await _countEpubPages(bookFile!.path!);
+        pageCount = await _countEpubPages(newFile.path);
       } else {
-        totalPages = 0;
         _showSnackbar('⚠️ Định dạng file không hỗ trợ (chỉ PDF, EPUB)', Colors.orange);
+        return;
       }
-      setState(() {});
+
+      setState(() {
+        bookFile = newFile;
+        bookFileName = result.files.first.name;
+        bookFileSize = result.files.first.size;
+        totalPages = pageCount;
+      });
+
+      if (pageCount > 0) {
+        _showSnackbar('✅ Đã đếm được $pageCount trang', Colors.green);
+      }
+      
+      if (_isAutoFilled) {
+        _showSnackbar('✅ Đã tự động điền thông tin từ file', Colors.blue);
+      }
     } catch (e) {
-      print("❌ Lỗi đếm trang: $e");
-      totalPages = 0;
-      _showSnackbar('❌ Lỗi đọc file: $e', Colors.red);
+      print("❌ Lỗi xử lý file: $e");
+      _showSnackbar('❌ Lỗi: $e', Colors.red);
+    }
+  }
+
+  // 🔥 TỰ ĐỘNG ĐIỀN THÔNG TIN
+  Future<void> _autoFillBookInfo(String filePath, String fileName, String ext) async {
+    // 1. Từ tên file
+    _autoFillFromFileName(fileName);
+    
+    // 2. Từ metadata trong file
+    Map<String, String> metadata = {};
+    
+    if (ext == 'pdf') {
+      metadata = await _readPdfMetadata(filePath);
+    } else if (ext == 'epub') {
+      metadata = await _readEpubMetadata(filePath);
+    }
+    
+    // Điền thông tin từ metadata (ưu tiên hơn tên file)
+    if (metadata['title'] != null && metadata['title']!.isNotEmpty) {
+      titleController.text = metadata['title']!;
+    }
+    if (metadata['author'] != null && metadata['author']!.isNotEmpty) {
+      authorController.text = metadata['author']!;
+    }
+    if (metadata['year'] != null && metadata['year']!.isNotEmpty) {
+      yearController.text = metadata['year']!;
+    }
+    
+    if (metadata.isNotEmpty) {
+      setState(() => _isAutoFilled = true);
     }
   }
 
@@ -215,12 +376,18 @@ class _AddBookScreenState extends State<AddBookScreen> {
   }
 
   Future<void> saveBook() async {
-    // 🔥 GỌI VALIDATE
     if (!_validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
+      if (coverImage != null && !await coverImage!.exists()) {
+        throw Exception('File ảnh đã bị xóa');
+      }
+      if (bookFile != null && !await bookFile!.exists()) {
+        throw Exception('File sách đã bị xóa');
+      }
+
       await bookService.addBook(
         title: titleController.text.trim(),
         author: authorController.text.trim(),
@@ -229,7 +396,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
         pages: totalPages.toString(),
         description: descController.text.trim(),
         imagePath: coverImage!.path,
-        bookPath: bookFile!.path!,
+        bookPath: bookFile!.path,
       );
 
       _showSnackbar('✅ Thêm sách thành công!', Colors.green);
@@ -293,10 +460,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                 children: [
                   CircularProgressIndicator(color: Color(0xFF4A5D4E)),
                   SizedBox(height: 16),
-                  Text(
-                    'Đang thêm sách...',
-                    style: TextStyle(color: Colors.grey),
-                  ),
+                  Text('Đang thêm sách...', style: TextStyle(color: Colors.grey)),
                 ],
               ),
             )
@@ -316,7 +480,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                         border: Border.all(
                           color: coverImage == null ? Colors.grey[300]! : Colors.transparent,
                           width: 2,
-                          style: BorderStyle.solid,
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -356,6 +519,34 @@ class _AddBookScreenState extends State<AddBookScreen> {
                   ),
                   const SizedBox(height: 16),
 
+                  // ===== HIỂN THỊ TRẠNG THÁI TỰ ĐỘNG ĐIỀN =====
+                  if (_isAutoFilled) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.blue[700]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '✅ Thông tin đã được tự động điền từ file sách',
+                              style: TextStyle(
+                                color: Colors.blue[700],
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   // ===== Form =====
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -372,7 +563,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     ),
                     child: Column(
                       children: [
-                        // Tiêu đề
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -400,7 +590,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Tác giả
                         TextField(
                           controller: authorController,
                           decoration: const InputDecoration(
@@ -415,7 +604,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Thể loại
                         DropdownButtonFormField<String>(
                           value: selectedCategoryId,
                           decoration: const InputDecoration(
@@ -441,7 +629,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Năm xuất bản + Số trang
                         Row(
                           children: [
                             Expanded(
@@ -491,7 +678,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Mô tả
                         TextField(
                           controller: descController,
                           maxLines: 4,
@@ -557,7 +743,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                                 if (bookFile != null) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    bookFile!.name,
+                                    bookFileName ?? '...',
                                     style: const TextStyle(
                                       color: Colors.black87,
                                       fontSize: 13,
@@ -566,7 +752,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
-                                    '${(bookFile!.size / 1024 / 1024).toStringAsFixed(2)} MB',
+                                    '${((bookFileSize ?? 0) / 1024 / 1024).toStringAsFixed(2)} MB',
                                     style: TextStyle(
                                       color: Colors.grey[500],
                                       fontSize: 12,

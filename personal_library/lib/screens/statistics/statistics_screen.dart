@@ -38,6 +38,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     try {
       final stats = await _readingService.getUserStats();
       
+      print('📊 Stats loaded:');
+      print('  - totalReading: ${stats['totalReading']}');
+      print('  - totalCompleted: ${stats['totalCompleted']}');
+      print('  - totalMinutes: ${stats['totalMinutes']}');
+      print('  - totalPages: ${stats['totalPages']}');
+      print('  - history: ${stats['readingHistory']?.length ?? 0}');
+      
       setState(() {
         _totalReading = stats['totalReading'] ?? 0;
         _totalCompleted = stats['totalCompleted'] ?? 0;
@@ -48,6 +55,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      print('❌ Load statistics error: $e');
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
@@ -121,33 +129,37 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     ],
                   ),
                 )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      // ===== TỔNG QUAN =====
-                      _buildOverview(),
-                      const SizedBox(height: 16),
-
-                      // ===== BIỂU ĐỒ THỂ LOẠI =====
-                      if (_genreStats.isNotEmpty) ...[
-                        _buildGenreChart(),
+              : RefreshIndicator(
+                  onRefresh: _loadStatistics,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        // ===== TỔNG QUAN =====
+                        _buildOverview(),
                         const SizedBox(height: 16),
-                      ],
 
-                      // ===== TIẾN ĐỘ ĐỌC =====
-                      _buildReadingProgress(),
-                      const SizedBox(height: 16),
+                        // ===== BIỂU ĐỒ THỂ LOẠI =====
+                        if (_genreStats.isNotEmpty) ...[
+                          _buildGenreChart(),
+                          const SizedBox(height: 16),
+                        ],
 
-                      // ===== LỊCH SỬ ĐỌC =====
-                      if (_readingHistory.isNotEmpty) ...[
-                        _buildReadingHistory(),
+                        // ===== TIẾN ĐỘ ĐỌC =====
+                        _buildReadingProgress(),
                         const SizedBox(height: 16),
-                      ],
 
-                      // ===== THỐNG KÊ CHI TIẾT =====
-                      _buildDetailStats(),
-                    ],
+                        // ===== LỊCH SỬ ĐỌC =====
+                        if (_readingHistory.isNotEmpty) ...[
+                          _buildReadingHistory(),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // ===== THỐNG KÊ CHI TIẾT =====
+                        _buildDetailStats(),
+                      ],
+                    ),
                   ),
                 ),
     );
@@ -155,6 +167,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   // ================= OVERVIEW =================
   Widget _buildOverview() {
+    // 🔥 ĐỊNH DẠNG THỜI GIAN ĐẸP
+    final hours = _totalMinutes ~/ 60;
+    final minutes = _totalMinutes % 60;
+    final timeString = hours > 0 
+        ? '${hours}h${minutes}m' 
+        : '${minutes}m';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -197,7 +216,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 icon: Icons.check_circle_outline,
               ),
               _buildOverviewItem(
-                value: '${_totalMinutes ~/ 60}h${_totalMinutes % 60}m',
+                value: timeString,
                 label: 'Thời gian',
                 icon: Icons.timer,
               ),
@@ -254,6 +273,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final entries = _genreStats.entries.toList();
     final total = entries.fold(0, (sum, e) => sum + (e.value as int));
 
+    if (total == 0) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -296,7 +319,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                         return PieChartSectionData(
                           color: colors[index % colors.length],
                           value: value,
-                          title: '${(percentage * 100).toInt()}%',
+                          title: percentage > 0.05 ? '${(percentage * 100).toInt()}%' : '',
                           radius: 50,
                           titleStyle: const TextStyle(
                             color: Colors.white,
@@ -463,28 +486,36 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           ),
           const SizedBox(height: 12),
           ..._readingHistory.take(5).map((item) {
+            final title = item['title'] ?? 'Không tên';
+            final pages = item['pages'] ?? 0;
+            final minutes = item['minutes'] ?? 0;
+            final date = item['date'] ?? '';
+            
             return ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.menu_book, color: Color(0xFF4A5D4E)),
               title: Text(
-                item['title'] ?? 'Không tên',
+                title,
                 style: const TextStyle(
                   fontWeight: FontWeight.w500,
                   fontSize: 14,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               subtitle: Text(
-                'Đọc ${item['pages'] ?? 0} trang • ${item['date'] ?? ''}',
+                'Đọc $pages trang • $date',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[600],
                 ),
               ),
               trailing: Text(
-                '${item['minutes'] ?? 0}m',
+                '${minutes}m',
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
+                  color: Color(0xFF4A5D4E),
                 ),
               ),
             );
@@ -496,6 +527,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   // ================= DETAIL STATS =================
   Widget _buildDetailStats() {
+    final totalBooks = _totalReading + _totalCompleted;
+    final avgPages = _totalCompleted > 0 ? (_totalPages ~/ _totalCompleted) : 0;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -524,7 +558,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           _buildDetailItem(
             icon: Icons.menu_book,
             label: 'Tổng số sách',
-            value: '${_totalReading + _totalCompleted}',
+            value: '$totalBooks',
           ),
           _buildDetailItem(
             icon: Icons.timer,
@@ -539,7 +573,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           _buildDetailItem(
             icon: Icons.speed,
             label: 'Trung bình mỗi sách',
-            value: '${_totalCompleted > 0 ? (_totalPages ~/ _totalCompleted) : 0} trang',
+            value: '$avgPages trang',
           ),
         ],
       ),

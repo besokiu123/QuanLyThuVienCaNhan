@@ -25,31 +25,23 @@ const uploadImageToCloudinary = async (fileBuffer) => {
             .pipe(stream);
     });
 };
-// 1. ĐỊNH NGHĨA HÀM UPLOAD FILE SÁCH (RAW)
-const uploadFileToCloudinary = async (fileBuffer,originalName) => {
+const uploadFileToCloudinary = async (fileBuffer, originalName) => {
     return new Promise((resolve, reject) => {
-        const cldUploadStream = cloudinary.uploader.upload_stream(
+        const stream = cloudinary.uploader.upload_stream(
             {
                 resource_type: "raw",
+                type: "upload",
                 folder: "book_files",
                 use_filename: true,
                 unique_filename: true,
-                filename_override: originalName
             },
             (error, result) => {
                 if (error) return reject(error);
-
-                resolve({
-                    url: result.secure_url,
-                    public_id: result.public_id,
-                    format: result.format
-                });
+                resolve(result);
             }
         );
 
-        streamifier
-            .createReadStream(fileBuffer)
-            .pipe(cldUploadStream);
+        streamifier.createReadStream(fileBuffer).pipe(stream);
     });
 };
 
@@ -80,18 +72,23 @@ exports.addSach = async (req, res) => {
                 message: "Vui lòng upload PDF/EPUB hoặc nhập URL sách"
             });
         }
+        // controllers/book.controller.js
+        // Đảm bảo import đúng service
+        const sachService = require('../services/book.service');
+
+        // ... code khác
+
+        // Khi upload file, gọi hàm từ service
         if (uploadedFile) {
             const ext = path.extname(uploadedFile.originalname).toLowerCase();
-
             if (ext === '.epub') loai = 'EPUB';
             else if (ext === '.pdf') loai = 'PDF';
 
-            const uploadedResult =
-                await uploadFileToCloudinary(
-                    uploadedFile.buffer,
-                    uploadedFile.originalname
-                );
-
+            // 🔥 GỌI HÀM TỪ SERVICE (đã có access_mode)
+            const uploadedResult = await uploadFileToCloudinary(
+                uploadedFile.buffer,
+                uploadedFile.originalname
+            );
             fileUrl = uploadedResult.url;
         }
 
@@ -243,5 +240,29 @@ exports.getCompletedBooks = async (req, res) => {
     } catch (error) {
         console.error('❌ Get completed books error:', error);
         res.status(500).json({ message: error.message });
+    }
+};
+exports.getSignedUrl = async (req, res) => {
+    try {
+        const { bookId } = req.params;
+
+        const book = await sachService.getSachById(bookId);
+
+        if (!book) {
+            return res.status(404).json({
+                message: "Không tìm thấy sách"
+            });
+        }
+
+        res.json({
+            success: true,
+            url: book.file_url
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: error.message
+        });
     }
 };

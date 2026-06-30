@@ -15,5 +15,6 @@ app.use('/api/review', require('./routes/review.routes'));
 app.use('/api/goal', require('./routes/goal.routes'));
 app.use('/api/stats', require('./routes/stats.routes'));
 // Thêm route user
+app.use('/api/highlights', require('./routes/highlight.routes'));
 app.use("/api/users", require("./routes/user.routes"));
 module.exports = app;

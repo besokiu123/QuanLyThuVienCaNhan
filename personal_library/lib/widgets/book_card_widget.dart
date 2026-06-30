@@ -42,13 +42,14 @@ class BookCardWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Ảnh bìa
-            Expanded(
-              flex: 7,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
+            // 🔥 ẢNH BÌA - Fixed height
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+              child: SizedBox(
+                height: 150,
+                width: double.infinity,
                 child: book.anhBia != null
                     ? Image.network(
                         book.anhBia!,
@@ -75,88 +76,86 @@ class BookCardWidget extends StatelessWidget {
               ),
             ),
             
-            // Thông tin sách
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      book.tieuDe,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Color(0xFF222222),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+            // 🔥 THÔNG TIN SÁCH - Flexible, không fixed height
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tiêu đề
+                  Text(
+                    book.tieuDe,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Color(0xFF222222),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          book.tacGia,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  
+                  // Tác giả
+                  Text(
+                    book.tacGia,
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  
+                  // Loại file + số trang
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: (book.loaiFile?.toUpperCase() ?? 'PDF') == 'EPUB'
+                              ? Colors.purple.withOpacity(0.1)
+                              : Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          book.loaiFile?.toUpperCase() ?? 'PDF',
                           style: TextStyle(
-                            color: Colors.grey[500],
-                            fontSize: 11,
+                            color: (book.loaiFile?.toUpperCase() ?? 'PDF') == 'EPUB'
+                                ? Colors.purple[700]
+                                : Colors.blue[700],
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: (book.loaiFile?.toUpperCase() ?? 'PDF') == 'EPUB'
-                                    ? Colors.purple.withOpacity(0.1)
-                                    : Colors.blue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                book.loaiFile?.toUpperCase() ?? 'PDF',
-                                style: TextStyle(
-                                  color: (book.loaiFile?.toUpperCase() ?? 'PDF') == 'EPUB'
-                                      ? Colors.purple[700]
-                                      : Colors.blue[700],
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${book.tongSoTrang} tr',
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 9,
-                              ),
-                            ),
-                          ],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${book.tongSoTrang} tr',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 9,
                         ),
-                        if (showProgress && progress != null) ...[
-                          const SizedBox(height: 4),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(2),
-                            child: LinearProgressIndicator(
-                              value: progress!.clamp(0.0, 1.0),
-                              minHeight: 3,
-                              backgroundColor: Colors.grey[200],
-                              color: const Color(0xFF4A5D4E),
-                            ),
-                          ),
-                        ],
-                      ],
+                      ),
+                    ],
+                  ),
+                  
+                  if (showProgress && progress != null) ...[
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: progress!.clamp(0.0, 1.0),
+                        minHeight: 3,
+                        backgroundColor: Colors.grey[200],
+                        color: const Color(0xFF4A5D4E),
+                      ),
                     ),
                   ],
-                ),
+                ],
               ),
             ),
           ],

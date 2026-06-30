@@ -50,6 +50,7 @@ model nguoi_dung {
   updated_at         DateTime         @default(now()) @db.Timestamptz(6)
   danh_dau_trang     danh_dau_trang[]
   danh_gia           danh_gia[]
+  highlight          highlight[]
   ghi_chu_doc        ghi_chu_doc[]
   muc_tieu_doc       muc_tieu_doc[]
   phien_doc          phien_doc[]
@@ -79,6 +80,7 @@ model sach {
   created_at     DateTime         @default(now()) @db.Timestamptz(6)
   updated_at     DateTime         @default(now()) @db.Timestamptz(6)
   danh_dau_trang danh_dau_trang[]
+  highlight      highlight[]
   danh_gia       danh_gia[]
   ghi_chu_doc    ghi_chu_doc[]
   phien_doc      phien_doc[]
@@ -144,6 +146,22 @@ model ghi_chu_doc {
   nguoi_dung    nguoi_dung @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_note_user")
 
   @@index([nguoi_dung_id], map: "idx_ghi_chu_user")
+}
+
+model highlight {
+  id            String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  nguoi_dung_id String     @db.Uuid
+  sach_id       String     @db.Uuid
+  cfi           String     @db.Text // Vị trí chính xác trong EPUB
+  text          String     @db.Text // Đoạn văn được highlight
+  color         String     @default("#FFD700") // Màu highlight
+  note          String?    @db.Text // 🔥 Ghi chú kèm theo
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime   @default(now()) @db.Timestamptz(6)
+  sach          sach       @relation(fields: [sach_id], references: [id], onDelete: Cascade)
+  nguoi_dung    nguoi_dung @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade)
+
+  @@index([nguoi_dung_id, sach_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

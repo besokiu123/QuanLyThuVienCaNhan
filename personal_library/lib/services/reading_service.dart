@@ -13,7 +13,7 @@ class ReadingService {
 
       return {
         'trang_hien_tai': (data['trang_hien_tai'] as int?) ?? 0,
-        'epubCfi': data['epubCfi'] as String?,
+        'epubCfi': data['epub_cfi'] as String?,
       };
     } catch (e) {
       debugPrint('❌ getProgress error: $e');
@@ -44,29 +44,29 @@ class ReadingService {
   }
 
   // ─── SAVE SESSION ────────────────────────────────
-  Future<void> saveSession({
-    required String bookId,
-    required int startPage,
-    required int endPage,
-    required int minutes,
-  }) async {
-    if (minutes < 1 || endPage <= startPage) return;
+  // ─── SAVE SESSION ────────────────────────────────
+Future<void> saveSession({
+  required String bookId,
+  required int startPage,
+  required int endPage,
+  required int minutes,
+}) async {
+  if (minutes < 1 || endPage <= startPage) return;
 
-    try {
-      // 🔥 SỬA: dùng 'trangBatDau' thay vì 'trangHienTai'
-      final body = {
-        'bookId': bookId,
-        'trangBatDau': startPage, // ✅ ĐÚNG
-        'trangKetThuc': endPage,
-        'phut': minutes,
-      };
-      debugPrint('📤 saveSession: $body');
-      await ApiClient.dio.post('/session', data: body);
-      debugPrint('✅ saveSession OK');
-    } catch (e) {
-      debugPrint('❌ saveSession error: $e');
-    }
+  try {
+    final body = {
+      'bookId': bookId,
+      'trangBatDau': startPage,
+      'trangKetThuc': endPage,
+      'phut': minutes,
+    };
+    debugPrint('📤 saveSession: $body');
+    await ApiClient.dio.post('/reading/session', data: body);
+    debugPrint('✅ saveSession OK');
+  } catch (e) {
+    debugPrint('❌ saveSession error: $e');
   }
+}
 
   Future<Map<String, dynamic>> getUserStats() async {
     try {

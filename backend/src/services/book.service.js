@@ -2,10 +2,17 @@ const prisma = require('../config/prisma');
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 
-const uploadFileToCloudinary = async (fileBuffer) => {
+// services/book.service.js
+const uploadFileToCloudinary = async (fileBuffer, originalName) => {
     return new Promise((resolve, reject) => {
         const cldUploadStream = cloudinary.uploader.upload_stream(
-            { resource_type: "raw", folder: "book_files" },
+            { 
+                resource_type: "raw", 
+                folder: "book_files",
+                access_mode: "public", // 🔥 THÊM DÒNG NÀY
+                use_filename: true,
+                unique_filename: true,
+            },
             (error, result) => {
                 if (error) return reject(error);
                 resolve(result.secure_url);
@@ -14,7 +21,6 @@ const uploadFileToCloudinary = async (fileBuffer) => {
         streamifier.createReadStream(fileBuffer).pipe(cldUploadStream);
     });
 };
-
 // ================= THÊM SÁCH =================
 exports.addSach = async (thuThuId, data) => {
     if (!data.tieu_de || !data.the_loai_id) {
@@ -158,3 +164,5 @@ exports.searchAndFilter = async (query, page = 1, limit = 10) => {
         include: { the_loai: true }
     });
 };
+
+
